@@ -2,3 +2,22 @@ build/
 .idea/
 .vscode/
 .trae/
+boards/nrf52840dk_nrf52840 copy.overlay
+boards/nrf52840dk_nrf52840.conf
+boards/nrf52840dk_nrf52840.overlay
+boards/promicro_nrf52840.conf
+boards/promicro_nrf52840.overlay
+boards/promicro_nrf52840/board.cmake
+boards/promicro_nrf52840/board.yml
+boards/promicro_nrf52840/CMakeLists.txt
+boards/promicro_nrf52840/Kconfig
+boards/promicro_nrf52840/Kconfig.defconfig
+boards/promicro_nrf52840/Kconfig.promicro_nrf52840
+boards/promicro_nrf52840/nrf52840dk_nrf52840-pinctrl.dtsi
+boards/promicro_nrf52840/promicro_nrf52840_nrf52840_common.dts
+boards/promicro_nrf52840/promicro_nrf52840_nrf52840_defconfig
+boards/promicro_nrf52840/promicro_nrf52840_nrf52840.dts
+boards/promicro_nrf52840/promicro_nrf52840_nrf52840.yaml
+boards/promicro_nrf52840/promicro_nrf52840-pinctrl.dtsi
+boards/promicro_nrf52840/promicro_nrf52840.yaml
+.marscode/deviceInfo.json
