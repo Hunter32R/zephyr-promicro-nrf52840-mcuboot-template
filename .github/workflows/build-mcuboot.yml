@@ -108,7 +108,7 @@ jobs:
           west build \
             -b ${{ env.BOARD }} \
             -d ${{ env.BUILD_DIR }} \
-            --pristine \
+            -p always \
             bootloader/mcuboot/boot/zephyr \
             -- \
             -DBOARD_ROOT=${{ github.workspace }}/project \
