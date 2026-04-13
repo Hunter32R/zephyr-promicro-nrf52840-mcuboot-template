@@ -102,9 +102,8 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           export ZEPHYR_BASE=$PWD/ncs/zephyr
           export ZEPHYR_SDK_INSTALL_DIR=~/.local/share/zephyr-sdk
-          # BOARD_ROOT должен содержать папку boards/ с определением платы.
-          # project/ — это корень репозитория, там лежит boards/promicro_nrf52840/
-          export BOARD_ROOT=${{ github.workspace }}/project
+
+          BOARD_ROOT=${{ github.workspace }}/project
 
           cd ncs
 
@@ -113,11 +112,12 @@ jobs:
             -d ${{ env.BUILD_DIR }} \
             -p always \
             bootloader/mcuboot/boot/zephyr \
-            -- \
-            -DCONFIG_BOOT_SWAP_USING_MOVE=y \
-            -DCONFIG_BOOT_MAX_IMG_SECTORS=256 \
-            -DCONFIG_BOOT_UPGRADE_ONLY=n \
-            -DCONFIG_MCUBOOT_LOG_LEVEL_INF=y
+            --cmake-args \
+              -DBOARD_ROOT=${BOARD_ROOT} \
+              -DCONFIG_BOOT_SWAP_USING_MOVE=y \
+              -DCONFIG_BOOT_MAX_IMG_SECTORS=256 \
+              -DCONFIG_BOOT_UPGRADE_ONLY=n \
+              -DCONFIG_MCUBOOT_LOG_LEVEL_INF=y
 
       - name: Collect artifacts
         run: |
