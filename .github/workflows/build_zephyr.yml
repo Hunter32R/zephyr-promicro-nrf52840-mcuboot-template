@@ -27,7 +27,11 @@ jobs:
         run: pip3 install --user west
 
       - name: Install Python deps
-        run: pip3 install --user -r zephyr/scripts/requirements.txt
+        run: |
+          pip3 install --user west
+          pip3 install --user pyelftools
+          pip3 install --user imgtool
+          pip3 install --user nrfutil
 
       - name: Install Zephyr SDK
         run: |
