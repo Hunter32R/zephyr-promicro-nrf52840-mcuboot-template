@@ -26,12 +26,6 @@ jobs:
       - name: Install west
         run: pip3 install --user west
 
-      - name: Init Zephyr workspace
-        run: |
-          west init -l .
-          west update
-          west zephyr-export
-
       - name: Install Python deps
         run: pip3 install --user -r zephyr/scripts/requirements.txt
 
