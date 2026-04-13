@@ -112,12 +112,12 @@ jobs:
             -d ${{ env.BUILD_DIR }} \
             -p always \
             bootloader/mcuboot/boot/zephyr \
-            --cmake-args \
-              -DBOARD_ROOT=${BOARD_ROOT} \
-              -DCONFIG_BOOT_SWAP_USING_MOVE=y \
-              -DCONFIG_BOOT_MAX_IMG_SECTORS=256 \
-              -DCONFIG_BOOT_UPGRADE_ONLY=n \
-              -DCONFIG_MCUBOOT_LOG_LEVEL_INF=y
+            -- \
+            -DBOARD_ROOT=${BOARD_ROOT} \
+            -DCONFIG_BOOT_SWAP_USING_MOVE=y \
+            -DCONFIG_BOOT_MAX_IMG_SECTORS=256 \
+            -DCONFIG_BOOT_UPGRADE_ONLY=n \
+            -DCONFIG_MCUBOOT_LOG_LEVEL_INF=y
 
       - name: Collect artifacts
         run: |
