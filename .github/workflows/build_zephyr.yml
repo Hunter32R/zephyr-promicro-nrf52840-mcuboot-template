@@ -13,6 +13,7 @@ jobs:
       ZEPHYR_TOOLCHAIN_VARIANT: zephyr
       ZEPHYR_SDK_INSTALL_DIR: /opt/zephyr-sdk
       BOARD: promicro_nrf52840/nrf52840
+      ZEPHYR_BASE: ${{ github.workspace }}/zephyr
 
     steps:
       - name: Checkout
@@ -31,6 +32,14 @@ jobs:
         run: |
           pip3 install --user west pyelftools imgtool
 
+      - name: Clone Zephyr
+        run: |
+          git clone --depth 1 https://github.com/zephyrproject-rtos/zephyr.git zephyr
+
+      - name: Install Zephyr Python deps
+        run: |
+          pip3 install --user -r zephyr/scripts/requirements.txt
+
       - name: Install Zephyr SDK
         run: |
           wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64.tar.xz
@@ -40,6 +49,7 @@ jobs:
 
       - name: Set environment
         run: |
+          echo "ZEPHYR_BASE=$GITHUB_WORKSPACE/zephyr" >> $GITHUB_ENV
           echo "ZEPHYR_SDK_INSTALL_DIR=/opt/zephyr-sdk" >> $GITHUB_ENV
 
       - name: Configure
