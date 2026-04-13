@@ -19,7 +19,7 @@ on:
 env:
   NCS_VERSION: ${{ github.event.inputs.ncs_version || 'v2.6.1' }}
   # Имя платы должно совпадать с именем папки в boards/ вашего репозитория
-  BOARD: my_promicro_nrf52840
+  BOARD: promicro_nrf52840
   BUILD_DIR: build/mcuboot
 
 jobs:
@@ -102,6 +102,9 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           export ZEPHYR_BASE=$PWD/ncs/zephyr
           export ZEPHYR_SDK_INSTALL_DIR=~/.local/share/zephyr-sdk
+          # BOARD_ROOT должен содержать папку boards/ с определением платы.
+          # project/ — это корень репозитория, там лежит boards/promicro_nrf52840/
+          export BOARD_ROOT=${{ github.workspace }}/project
 
           cd ncs
 
@@ -111,7 +114,6 @@ jobs:
             -p always \
             bootloader/mcuboot/boot/zephyr \
             -- \
-            -DBOARD_ROOT=${{ github.workspace }}/project \
             -DCONFIG_BOOT_SWAP_USING_MOVE=y \
             -DCONFIG_BOOT_MAX_IMG_SECTORS=256 \
             -DCONFIG_BOOT_UPGRADE_ONLY=n \
