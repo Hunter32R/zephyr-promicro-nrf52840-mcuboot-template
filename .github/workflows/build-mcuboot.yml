@@ -97,23 +97,29 @@ jobs:
             -r ncs/nrf/scripts/requirements.txt \
             -r ncs/bootloader/mcuboot/scripts/requirements.txt
 
+      - name: Debug — show board files in repo
+        run: |
+          echo "=== boards/ structure in project ==="
+          find ${{ github.workspace }}/project/boards -type f | sort || echo "boards/ not found!"
+          echo ""
+          echo "=== west workspace boards ==="
+          find ncs/zephyr/boards -maxdepth 3 -name "promicro*" | sort || true
+
       - name: Build MCUboot
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           export ZEPHYR_BASE=$PWD/ncs/zephyr
           export ZEPHYR_SDK_INSTALL_DIR=~/.local/share/zephyr-sdk
 
-          BOARD_ROOT=${{ github.workspace }}/project
-
-          cd ncs
-
+          # Запускаем west из корня workspace, не из ncs/
+          # Путь к исходникам MCUboot указываем абсолютным путём
           west build \
             -b ${{ env.BOARD }} \
-            -d ${{ env.BUILD_DIR }} \
+            -d ncs/${{ env.BUILD_DIR }} \
             -p always \
-            bootloader/mcuboot/boot/zephyr \
+            ncs/bootloader/mcuboot/boot/zephyr \
             -- \
-            -DBOARD_ROOT=${BOARD_ROOT} \
+            -DBOARD_ROOT=${{ github.workspace }}/project \
             -DCONFIG_BOOT_SWAP_USING_MOVE=y \
             -DCONFIG_BOOT_MAX_IMG_SECTORS=256 \
             -DCONFIG_BOOT_UPGRADE_ONLY=n \
