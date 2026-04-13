@@ -4,8 +4,8 @@ on:
   push:
     branches: [main, master]
     paths:
-      - 'mcuboot/**'
       - 'boards/**'
+      - 'mcuboot/**'
       - '.github/workflows/build-mcuboot.yml'
   pull_request:
     branches: [main, master]
@@ -18,7 +18,8 @@ on:
 
 env:
   NCS_VERSION: ${{ github.event.inputs.ncs_version || 'v2.6.1' }}
-  BOARD: promicro_nrf52840
+  # Имя платы должно совпадать с именем папки в boards/ вашего репозитория
+  BOARD: my_promicro_nrf52840
   BUILD_DIR: build/mcuboot
 
 jobs:
@@ -30,16 +31,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          # Чекаутим в папку project — она будет BOARD_ROOT для west
           path: project
 
-      # Кэшируем весь NCS — он весит ~10 ГБ, повторная загрузка занимает ~15 минут
+      # Кэшируем NCS (~10 ГБ) и Zephyr SDK отдельно:
+      # NCS меняется только при смене версии, SDK — крайне редко.
+      - name: Cache Zephyr SDK
+        uses: actions/cache@v4
+        id: sdk-cache
+        with:
+          path: ~/.local/share/zephyr-sdk
+          key: zephyr-sdk-0.16.5-1-${{ runner.os }}
+
       - name: Cache nRF Connect SDK
         uses: actions/cache@v4
         id: ncs-cache
         with:
-          path: |
-            ~/.local/share/zephyr-sdk
-            ncs
+          path: ncs
           key: ncs-${{ env.NCS_VERSION }}-${{ runner.os }}
           restore-keys: |
             ncs-${{ env.NCS_VERSION }}-
@@ -51,32 +59,28 @@ jobs:
             git cmake ninja-build gperf ccache \
             dfu-util device-tree-compiler wget \
             python3-dev python3-pip python3-setuptools \
-            python3-tk python3-wheel xz-utils file \
+            python3-wheel xz-utils file \
             make gcc libsdl2-dev libmagic1
 
-      - name: Install Python dependencies
-        run: |
-          pip3 install --user west
+      - name: Install west
+        run: pip3 install --user west
 
       - name: Set up Zephyr SDK
-        if: steps.ncs-cache.outputs.cache-hit != 'true'
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
         run: |
           SDK_VERSION="0.16.5-1"
           SDK_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${SDK_VERSION}"
           SDK_FILE="zephyr-sdk-${SDK_VERSION}_linux-x86_64_minimal.tar.xz"
-
           mkdir -p ~/.local/share/zephyr-sdk
           wget -q "${SDK_URL}/${SDK_FILE}" -O /tmp/zephyr-sdk.tar.xz
           tar xf /tmp/zephyr-sdk.tar.xz -C ~/.local/share/zephyr-sdk --strip-components=1
-
           ~/.local/share/zephyr-sdk/setup.sh -t arm-zephyr-eabi -h -c
 
       - name: Register Zephyr SDK (from cache)
-        if: steps.ncs-cache.outputs.cache-hit == 'true'
-        run: |
-          ~/.local/share/zephyr-sdk/setup.sh -t arm-zephyr-eabi -h -c
+        if: steps.sdk-cache.outputs.cache-hit == 'true'
+        run: ~/.local/share/zephyr-sdk/setup.sh -t arm-zephyr-eabi -h -c
 
-      - name: Initialize nRF Connect SDK (west init)
+      - name: Initialize nRF Connect SDK
         if: steps.ncs-cache.outputs.cache-hit != 'true'
         run: |
           export PATH="$HOME/.local/bin:$PATH"
@@ -93,7 +97,7 @@ jobs:
             -r ncs/nrf/scripts/requirements.txt \
             -r ncs/bootloader/mcuboot/scripts/requirements.txt
 
-      - name: Build MCUboot (standalone)
+      - name: Build MCUboot
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           export ZEPHYR_BASE=$PWD/ncs/zephyr
@@ -102,74 +106,41 @@ jobs:
           cd ncs
 
           west build \
-            -b ${{ env.BOARD }}/nrf52840 \
+            -b ${{ env.BOARD }} \
             -d ${{ env.BUILD_DIR }} \
+            --pristine \
             bootloader/mcuboot/boot/zephyr \
             -- \
+            -DBOARD_ROOT=${{ github.workspace }}/project \
             -DCONFIG_BOOT_SWAP_USING_MOVE=y \
-            -DCONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION="1.0.0" \
             -DCONFIG_BOOT_MAX_IMG_SECTORS=256 \
             -DCONFIG_BOOT_UPGRADE_ONLY=n \
             -DCONFIG_MCUBOOT_LOG_LEVEL_INF=y
 
-      # --- Собираем тестовое приложение (smp_svr) со включённым MCUboot ---
-      - name: Build test app with MCUboot + BLE OTA (sysbuild)
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          export ZEPHYR_BASE=$PWD/ncs/zephyr
-          export ZEPHYR_SDK_INSTALL_DIR=~/.local/share/zephyr-sdk
-
-          cd ncs
-
-          # sysbuild собирает MCUboot + приложение вместе и автоматически подписывает образ
-          west build \
-            -b ${{ env.BOARD }}/nrf52840 \
-            -d build/app \
-            --sysbuild \
-            zephyr/samples/subsys/mgmt/mcumgr/smp_svr \
-            -- \
-            -DCONFIG_BOOTLOADER_MCUBOOT=y \
-            -DCONFIG_NCS_SAMPLE_MCUMGR_BT_OTA_DFU=y \
-            -DCONFIG_BT_DEVICE_NAME="nRF52840-ProMicro" \
-            -DCONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION="1.0.0"
-
-      - name: Collect build artifacts
+      - name: Collect artifacts
         run: |
           mkdir -p artifacts
-
-          # Бутлоадер
-          cp ncs/${{ env.BUILD_DIR }}/zephyr/zephyr.hex     artifacts/mcuboot.hex
-          cp ncs/${{ env.BUILD_DIR }}/zephyr/zephyr.bin     artifacts/mcuboot.bin     2>/dev/null || true
-
-          # Подписанный образ приложения (готов к OTA)
-          cp ncs/build/app/zephyr/zephyr.signed.hex          artifacts/app.signed.hex  2>/dev/null || true
-          cp ncs/build/app/zephyr/zephyr.signed.bin          artifacts/app.signed.bin  2>/dev/null || true
-
-          # Merged hex (MCUboot + app) — для первоначальной прошивки через SWD
-          cp ncs/build/app/zephyr/merged.hex                 artifacts/merged.hex      2>/dev/null || true
-
-          # Ключ для подписи образов (по умолчанию тестовый из mcuboot)
-          cp ncs/bootloader/mcuboot/root-rsa-2048.pem        artifacts/signing-key.pem 2>/dev/null || true
-
-          echo "=== Built artifacts ==="
+          cp ncs/${{ env.BUILD_DIR }}/zephyr/zephyr.hex artifacts/mcuboot.hex
+          cp ncs/${{ env.BUILD_DIR }}/zephyr/zephyr.bin artifacts/mcuboot.bin 2>/dev/null || true
+          echo "=== Artifacts ==="
           ls -lh artifacts/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mcuboot-nrf52840-promicro-${{ github.sha }}
+          name: mcuboot-${{ env.BOARD }}-${{ github.sha }}
           path: artifacts/
           retention-days: 30
 
-      - name: Show build summary
+      - name: Build summary
         run: |
-          echo "### Build summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### MCUboot build" >> $GITHUB_STEP_SUMMARY
           echo "| File | Size |" >> $GITHUB_STEP_SUMMARY
           echo "|------|------|" >> $GITHUB_STEP_SUMMARY
           for f in artifacts/*; do
             echo "| $(basename $f) | $(du -h $f | cut -f1) |" >> $GITHUB_STEP_SUMMARY
           done
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Board:** \`${{ env.BOARD }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**NCS version:** \`${{ env.NCS_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Board:** \`${{ env.BOARD }}\`  " >> $GITHUB_STEP_SUMMARY
+          echo "**NCS:** \`${{ env.NCS_VERSION }}\`  " >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
